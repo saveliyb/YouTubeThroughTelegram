@@ -57,8 +57,14 @@ async def info(message: types.Message):
 
 @dp.message_handler(commands=["d", "donload"])
 async def download_video(message: types.Message):
+    # https://youtu.be/vT0M6q0dkp4
     url = ' '.join(message.text.split()[1:])
+    if "youtu.be" in url:
+        url = f"https://www.youtube.com/watch?v={url.split('/')[-1]}"
+    print(url)
+    await message.answer("Ожидайте")
     file_name = await download_yotube_video(url)
+    await message.answer("Видео скачано на сервер.\nНачалась загрузка в телеграм.")
     print(file_name)
     with open(f"./{file_name}", "rb") as vid:
         await message.answer_video(vid)
