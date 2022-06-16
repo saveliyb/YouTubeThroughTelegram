@@ -1,3 +1,8 @@
 class Config:
-    TOKEN = "1315859784:AAE1H35C9_Q2cp6yRg7-mAzV5L9YTl383Q8"
-    admins_id = ["639980235"]
+    TOKEN = ""
+    admins_id = [""]
+
+    api_id = int()
+    api_hash = ""
+    session_name = "anon"
+    secret_string = ""

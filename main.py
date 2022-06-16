@@ -4,8 +4,10 @@ import logging
 import os
 
 import aiogram
-from CONFIG import Config
 from aiogram import types
+
+from CONFIG import Config
+from example_tele import send_video
 
 logging.basicConfig(level=logging.INFO)
 
@@ -21,6 +23,7 @@ async def is_admin(message: types.Message):
 
 
 async def download_yotube_video(url: str):
+    """скачивание видео на сервер"""
     try:
         yt_obj = YouTube(url)
 
@@ -28,24 +31,23 @@ async def download_yotube_video(url: str):
         video_name = f"{yt_obj.title}.mp4"
         # download the highest quality video
         filters.get_highest_resolution().download(filename=video_name)
-        print('Video Downloaded Successfully')
         return video_name
     except Exception as e:
         print(e)
         return e
 
 
-async def info_video(message: types.Message):
+async def info_video(message: types.Message, flag=True):
     if await is_admin(message):
         try:
-            url = message.text.replace("/url", "")
+            url = message.text.split()[-1]
             yt_obj = YouTube(url)
             auth = yt_obj.author
             name = yt_obj.title
             return {"auth": auth, "name": name}
         except Exception as e:
             print(e)
-            return e
+            return -1
     else:
         return {"auth": "К сожадению", "name": " Вы не админ!"}  # Костыль
 
@@ -57,26 +59,38 @@ async def info(message: types.Message):
 
 @dp.message_handler(commands=["d", "donload"])
 async def download_video(message: types.Message):
-    # https://youtu.be/vT0M6q0dkp4
+    """скачивание и отпрвка видео пользователю"""
+    chat_id = message.chat.id
+
     url = ' '.join(message.text.split()[1:])
     if "youtu.be" in url:
+        # преобразование ссылки мобильного ютуба
         url = f"https://www.youtube.com/watch?v={url.split('/')[-1]}"
-    print(url)
-    await message.answer("Ожидайте")
-    file_name = await download_yotube_video(url)
-    await message.answer("Видео скачано на сервер.\nНачалась загрузка в телеграм.")
-    print(file_name)
-    with open(f"./{file_name}", "rb") as vid:
-        await message.answer_video(vid)
-        os.remove(file_name)
 
+    await message.answer("Ожидайте")
+    file_name = (await download_yotube_video(url))
+    await message.answer("Видео скачано на сервер.\nНачалась загрузка в телеграм.")
+    # отправка видео пользователю
+    res = await info_video(message)
+    if res != -1:
+        text = ': '.join((await info_video(message)).values())
+    else:
+        text = ""
+
+    await send_video(file_name, chat_id=chat_id, text=text)
+    os.remove(file_name)
+
+
+@dp.message_handler(content_types=aiogram.types.ContentTypes.VIDEO)
+async def video_handler(message: types.Message):
+    chat_id, text = message.caption.split("-757247959279949225")
+    await bot.send_video(chat_id=int(chat_id), video=message.video.file_id, caption=text)
+    await bot.send_message(int(chat_id), "видео получено")
 
 
 @dp.message_handler()
 async def main(message: types.Message):
     """обработчик всех сообщений не связанных с командой"""
-    print(message.text)
-    print(message)
     await message.answer(message.text)
     return
 
