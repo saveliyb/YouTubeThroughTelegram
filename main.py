@@ -1,84 +1,18 @@
-from pytube import YouTube
-import logging
-
 import os
 
 import aiogram
 from aiogram import types
+import logging
 
-from CONFIG import Config
-from example_tele import send_video
+from APIYouTube import YoutubeMethods as YT_methods
+from filters import *
+from unifier import Unifier
+import telethon_sender
 
 logging.basicConfig(level=logging.INFO)
 
 bot = aiogram.Bot(token=Config.TOKEN)
 dp = aiogram.Dispatcher(bot)
-
-
-async def is_admin(message: types.Message):
-    if str(message.from_user.id) in Config.admins_id:
-        return True
-    else:
-        return False
-
-
-async def download_yotube_video(url: str):
-    """скачивание видео на сервер"""
-    try:
-        yt_obj = YouTube(url)
-
-        filters = yt_obj.streams.filter(progressive=True, file_extension='mp4')
-        video_name = f"{yt_obj.title}.mp4"
-        # download the highest quality video
-        filters.get_highest_resolution().download(filename=video_name)
-        return video_name
-    except Exception as e:
-        print(e)
-        return e
-
-
-async def info_video(message: types.Message, flag=True):
-    if await is_admin(message):
-        try:
-            url = message.text.split()[-1]
-            yt_obj = YouTube(url)
-            auth = yt_obj.author
-            name = yt_obj.title
-            return {"auth": auth, "name": name}
-        except Exception as e:
-            print(e)
-            return -1
-    else:
-        return {"auth": "К сожадению", "name": " Вы не админ!"}  # Костыль
-
-
-@dp.message_handler(commands=["info"])
-async def info(message: types.Message):
-    return await message.answer(': '.join((await info_video(message)).values()))
-
-
-@dp.message_handler(commands=["d", "donload"])
-async def download_video(message: types.Message):
-    """скачивание и отпрвка видео пользователю"""
-    chat_id = message.chat.id
-
-    url = ' '.join(message.text.split()[1:])
-    if "youtu.be" in url:
-        # преобразование ссылки мобильного ютуба
-        url = f"https://www.youtube.com/watch?v={url.split('/')[-1]}"
-
-    await message.answer("Ожидайте")
-    file_name = (await download_yotube_video(url))
-    await message.answer("Видео скачано на сервер.\nНачалась загрузка в телеграм.")
-    # отправка видео пользователю
-    res = await info_video(message)
-    if res != -1:
-        text = ': '.join((await info_video(message)).values())
-    else:
-        text = ""
-
-    await send_video(file_name, chat_id=chat_id, text=text)
-    os.remove(file_name)
 
 
 @dp.message_handler(content_types=aiogram.types.ContentTypes.VIDEO)
@@ -90,10 +24,19 @@ async def video_handler(message: types.Message):
 
 @dp.message_handler()
 async def main(message: types.Message):
-    """обработчик всех сообщений не связанных с командой"""
-    await message.answer(message.text)
-    return
+    if is_admin(message.from_user.id):
+        if is_url_right(message.text):
+            await message.answer("Ожидайте")
+            file_name = (await YT_methods.download_video(Unifier.url(message.text)))
+
+            await message.answer("Видео скачано на сервер.\nНачалась загрузка в телеграм.")
+            await telethon_sender.send_video(file_name, message.from_user.id, message.text)
+            os.remove(file_name)
+        else:
+            await message.answer("К сожалению это не ссылка")
+    else:
+        await message.answer("Вы не имеете доступа к боту!")
 
 
 if __name__ == '__main__':
-  aiogram.executor.start_polling(dp, skip_updates=True)
+    aiogram.executor.start_polling(dp, skip_updates=True)
