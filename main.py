@@ -24,18 +24,18 @@ async def video_handler(message: types.Message):
 
 @dp.message_handler()
 async def main(message: types.Message):
-    if is_admin(message.from_user.id):
-        if is_url_right(message.text):
-            await message.answer("Ожидайте")
-            file_name = (await YT_methods.download_video(Unifier.url(message.text)))
-
-            await message.answer("Видео скачано на сервер.\nНачалась загрузка в телеграм.")
-            await telethon_sender.send_video(file_name, message.from_user.id, message.text)
-            os.remove(file_name)
-        else:
-            await message.answer("К сожалению это не ссылка")
-    else:
+    if not is_admin(message.from_user.id):
         await message.answer("Вы не имеете доступа к боту!")
+        return
+    if not is_url_right(message.text):
+        await message.answer("К сожалению это не ссылка")
+        return
+    await message.answer("Ожидайте")
+    file_name = (await YT_methods.download_video(Unifier.url(message.text)))
+    await message.answer("Видео скачано на сервер.\nНачалась загрузка в телеграм.")
+    await telethon_sender.send_video(file_name, message.from_user.id, message.text)
+    os.remove(file_name)
+        
 
 
 if __name__ == '__main__':
